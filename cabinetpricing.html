@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cabinet Pricing Calculator</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 2rem; max-width: 600px; margin: auto; }
+    label { display: block; margin-top: 1rem; }
+    input[type="number"], select { width: 100%; padding: 0.5rem; margin-top: 0.25rem; }
+    .appliance-group, .island-section, .cabinet-option-group { margin-top: 1rem; }
+    button { margin-top: 1.5rem; padding: 0.75rem 1.5rem; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    .result { margin-top: 2rem; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h2>Cabinet Pricing Calculator</h2>
+
+  <form id="cabinetForm">
+    <div id="wallInputs">
+      <label>Wall 1 Length (ft): <input type="number" name="wall" step="0.1" required /></label>
+    </div>
+    <button type="button" onclick="addWallInput()">+ Add Wall</button>
+
+    <div class="appliance-group">
+      <label>Fridge Size:
+        <select id="fridge">
+          <option value="0">None</option>
+          <option value="3">30" Standard</option>
+          <option value="3.5">36" Large</option>
+          <option value="4">42" Built-In</option>
+        </select>
+      </label>
+
+      <label>Stove Size:
+        <select id="stove">
+          <option value="0">None</option>
+          <option value="2.5">30" Standard</option>
+          <option value="3">36" Large</option>
+        </select>
+      </label>
+
+      <label><input type="checkbox" id="dishwasher" /> Include Dishwasher (24")</label>
+    </div>
+
+    <div class="cabinet-option-group">
+      <label>Upper Cabinet Height:
+        <select id="upperCabHeight">
+          <option value="0">Standard (30")</option>
+          <option value="1">36" - +$300</option>
+          <option value="2">42" - +$600</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="island-section">
+      <label><input type="checkbox" id="hasIsland" onchange="toggleIslandInputs()" /> Include Island</label>
+      <div id="islandInputs" style="display: none;">
+        <label>Island Length (ft): <input type="number" id="islandLength" step="0.1" /></label>
+        <label>Island Width (ft): <input type="number" id="islandWidth" step="0.1" /></label>
+        <label><input type="checkbox" id="islandDishwasher" /> Dishwasher in Island</label>
+        <label><input type="checkbox" id="islandMicrowave" /> Microwave in Island</label>
+      </div>
+    </div>
+
+    <div class="cabinet-option-group">
+      <label>Material Option:
+        <select id="materialOption">
+          <option value="300">Option 1 - $300/ft (MDF Thermofoil)</option>
+          <option value="400">Option 2 - $400/ft (MDF Painted)</option>
+          <option value="500">Option 3 - $500/ft (Premium)</option>
+        </select>
+      </label>
+    </div>
+
+    <button type="submit">Calculate</button>
+  </form>
+
+  <div class="result" id="result"></div>
+
+  <script>
+    function addWallInput() {
+      const container = document.getElementById('wallInputs');
+      const label = document.createElement('label');
+      label.innerHTML = `Wall ${container.children.length + 1} Length (ft): <input type="number" name="wall" step="0.1" required />`;
+      container.appendChild(label);
+    }
+
+    function toggleIslandInputs() {
+      const islandSection = document.getElementById('islandInputs');
+      islandSection.style.display = document.getElementById('hasIsland').checked ? 'block' : 'none';
+    }
+
+    function calculateLinearFeet(walls) {
+      return walls.reduce((sum, length) => sum + length, 0);
+    }
+
+    function estimateCabinetCost(walls, appliances, island, upperCabHeight, materialRate) {
+      let totalFeet = calculateLinearFeet(walls);
+
+      totalFeet -= parseFloat(appliances.fridge);
+      totalFeet -= parseFloat(appliances.stove);
+      if (appliances.dishwasher) totalFeet -= 2;
+
+      if (island.hasIsland) {
+        totalFeet += island.length * 2 + island.width * 2; // Perimeter cabinetry
+        if (island.dishwasher) totalFeet -= 2;
+        if (island.microwave) totalFeet -= 2;
+      }
+
+      totalFeet = Math.max(totalFeet, 0);
+
+      let baseCost = totalFeet * materialRate;
+      let upperCabCost = 0;
+
+      if (upperCabHeight === '1') upperCabCost = 300;
+      if (upperCabHeight === '2') upperCabCost = 600;
+
+      const totalCost = baseCost + upperCabCost;
+
+      return { totalFeet, baseCost, upperCabCost, totalCost };
+    }
+
+    document.getElementById('cabinetForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+
+      const wallInputs = document.querySelectorAll('input[name="wall"]');
+      const wallLengths = Array.from(wallInputs).map(input => parseFloat(input.value) || 0);
+
+      const appliances = {
+        fridge: document.getElementById('fridge').value,
+        stove: document.getElementById('stove').value,
+        dishwasher: document.getElementById('dishwasher').checked
+      };
+
+      const island = {
+        hasIsland: document.getElementById('hasIsland').checked,
+        length: parseFloat(document.getElementById('islandLength').value) || 0,
+        width: parseFloat(document.getElementById('islandWidth').value) || 0,
+        dishwasher: document.getElementById('islandDishwasher').checked,
+        microwave: document.getElementById('islandMicrowave').checked
+      };
+
+      const upperCabHeight = document.getElementById('upperCabHeight').value;
+      const materialRate = parseInt(document.getElementById('materialOption').value);
+
+      const result = estimateCabinetCost(wallLengths, appliances, island, upperCabHeight, materialRate);
+
+      document.getElementById('result').innerHTML = `
+        Total Chargeable Linear Feet: ${result.totalFeet.toFixed(1)} ft<br>
+        Base Cabinet Cost: $${result.baseCost.toFixed(2)}<br>
+        Upper Cabinet Surcharge: $${result.upperCabCost.toFixed(2)}<br>
+        <strong>Total Estimated Cost: $${result.totalCost.toFixed(2)}</strong>
+      `;
+    });
+  </script>
+</body>
+</html>
